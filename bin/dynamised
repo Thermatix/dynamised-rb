@@ -21,7 +21,7 @@ module Dynamised
           class_name = get_class_name(args.first)
           create_temp_class(class_name,File.read(script_path))
           class_ref = Scraper.fetch(class_name)
-          spinner = TTY::Spinner.new("[:spinner] scraping with %s" % scraper_name)
+          spinner = TTY::Spinner.new("[:spinner] scraping with %s" % class_name)
           class_ref.new.pull_and_store do
             spinner.spin
           end

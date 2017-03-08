@@ -40,7 +40,7 @@ module Dynamised
       @args = args
       @tree_pointer = []
       @use_store = false
-      @scraped_data = DBM_Wrapper.new("%s_scraped_data" % self.class.to_s)
+      @scraped_data = DBM_Wrapper.new("%s_scraped_data" % get_class_name(self.class.to_s))
       [:inc,:uri,:tree,:tree_pointer,:base_url,:writer].each do |attr|
         varb_name = "@%s" % attr
         self.instance_variable_set(varb_name,self.class.instance_variable_get(varb_name))
@@ -70,8 +70,12 @@ module Dynamised
 
     private
 
+    def get_class_name(string)
+      string.split('::').last.split('.').first.gsub(/ /,'_').capitalize
+    end
+
     def scrape_data(&spinner)
-      pull(pull_initial) do |hash|
+      pull(pull_initial,@tree) do |hash|
         spinner.call
       end
     end
@@ -88,6 +92,7 @@ module Dynamised
             raise '%s is a non supported writer type'
         end
       end
+      @scraped_data.stop
     end
 
 
@@ -128,7 +133,7 @@ module Dynamised
           res_hash[field] = value ? execute_method(data[:meta][:after],value,res_hash) : data[:meta].fetch(:default,nil)
         end
         @scraped_data[c_url] = fields.to_json if @use_store
-        block.call(res_hash)
+        block.call(fields)
       end
     end
 
