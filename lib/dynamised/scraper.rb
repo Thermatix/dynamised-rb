@@ -130,7 +130,14 @@ module Dynamised
         tree.data[:fields].each_with_object({}) do |(field,data),res_hash|
           target = execute_method(data[:meta][:before],remove_style_tags(doc),res_hash)
           value = scrape_tag(target,data[:xpath],data[:meta])
-          res_hash[field] = value ? execute_method(data[:meta][:after],value,res_hash) : data[:meta].fetch(:default,nil)
+          res_hash[field] =
+          if value
+            [*data[:meta][:after]].each do |method|
+              execute_method(method,value,res_hash)
+            end
+          else
+            data[:meta].fetch(:default,nil)
+          end
         end
         @scraped_data[c_url] = fields.to_json if @use_store
         block.call(fields)
