@@ -1,0 +1,72 @@
+#!/usr/bin/env ruby
+require_relative '../lib/dynamised'
+require 'commander'
+
+
+
+module Dynamised
+  class CLI
+    include Commander::Methods
+
+    def run
+      program :name, "Dynamised"
+      program :version, META::Version
+      program :description, META::Description
+
+      command :run do |c|
+        c.syntax = 'dynamised run <script>'
+        c.description = 'scrapes with given scraper'
+        c.action do |args,options|
+          script_path = check_and_convert(args.first)
+          class_name = get_class_name(args.first)
+          create_temp_class(class_name,File.read(script_path))
+          class_ref = Scraper.fetch(class_name)
+          spinner = TTY::Spinner.new("[:spinner] scraping with %s" % scraper_name)
+          class_ref.new.pull_and_store do
+            spinner.spin
+          end
+          spinner.success("(Successfull)")
+        end
+      end
+
+      command :test do |c|
+        c.syntax = 'dynamised test <script>'
+        c.description = "tests given scraper"
+        c.action do |args,options|
+          script_path = check_and_convert(args.first)
+          class_name = get_class_name(args.first)
+          create_temp_class(class_name,File.read(script_path))
+          class_ref = Scraper.fetch(class_name)
+          class_ref.new.pull_and_check
+        end
+      end
+
+      alias_command :r, :run
+      alias_command :t, :test
+      default_command :help
+      run!
+    end
+
+    def check_and_convert(path)
+      script_path = File.expand_path(path, Dir.pwd )
+      (puts "File name %s doesn't exist" % script_path and exit) unless File.exists?(script_path)
+      script_path
+    end
+
+    def get_class_name(string)
+      string.split('/').last.split('.').first.gsub(/ /,'_').capitalize
+    end
+
+
+    def create_temp_class(class_name,script)
+      Dynamised.module_eval <<-RUBY
+        class #{class_name} < Scraper
+          #{script}
+        end
+        RUBY
+    end
+
+  end
+end
+
+Dynamised::CLI.new.run if $0 == __FILE__
