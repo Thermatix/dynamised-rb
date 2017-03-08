@@ -39,6 +39,7 @@ module Dynamised
     def initialize(args=[],&block)
       @args = args
       @tree_pointer = []
+      @use_store = false
       @scraped_data = DBM_Wrapper.new("%s_scraped_data" % self.class.to_s)
       [:inc,:uri,:tree,:tree_pointer,:base_url,:writer].each do |attr|
         varb_name = "@%s" % attr
@@ -49,6 +50,7 @@ module Dynamised
 
     def pull_and_store(&spinner)
       raise "No writer detected" unless @writer
+      @use_store = true
       scrape_data(&spinner)
       write_data(&spinner)
     end
@@ -70,13 +72,12 @@ module Dynamised
 
     def scrape_data(&spinner)
       pull(pull_initial) do |hash|
-        @scraped_data[@current_url] = hash.to_json
         spinner.call
       end
     end
 
     def write_data(&spinner)
-      parsed_data = @scraped_data.map{|r| JSON.parse(r) }
+      parsed_data = @scraped_data.map {|r| JSON.parse(r) }
       @writer.each do |type,data|
         case type
           when :csv
@@ -119,14 +120,14 @@ module Dynamised
 
     def scrape(doc,tree,&block)
       c_url = @current_url
-      if !@scraped_data[c_url] && can_scrape(doc,tree)
+      if (@use_store ? !@scraped_data[c_url] : true) && can_scrape(doc,tree)
         fields =
         tree.data[:fields].each_with_object({}) do |(field,data),res_hash|
           target = execute_method(data[:meta][:before],remove_style_tags(doc),res_hash)
           value = scrape_tag(target,data[:xpath],data[:meta])
           res_hash[field] = value ? execute_method(data[:meta][:after],value,res_hash) : data[:meta].fetch(:default,nil)
         end
-        @scraped_data[c_url] = fields.to_json
+        @scraped_data[c_url] = fields.to_json if @use_store
         block.call(res_hash)
       end
     end
