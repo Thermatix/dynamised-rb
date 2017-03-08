@@ -39,7 +39,7 @@ module Dynamised
     def initialize(args=[],&block)
       @args = args
       @tree_pointer = []
-      @scraped_data = GDBM.new("%s_scraped_data.db" % self.class.to_s)
+      @scraped_data = DBM_Wrapper.new("%s_scraped_data" % self.class.to_s)
       [:inc,:uri,:tree,:tree_pointer,:base_url,:writer].each do |attr|
         varb_name = "@%s" % attr
         self.instance_variable_set(varb_name,self.class.instance_variable_get(varb_name))
@@ -47,30 +47,10 @@ module Dynamised
       super(&block)
     end
 
-    def uri
-      @uri ||= self.class.instance_variable_get(:@uri)
-    end
-
-
-    def inc
-      @inc ||= self.class.instance_variable_get(:@inc)
-    end
-
-
     def pull_and_store(&spinner)
       raise "No writer detected" unless @writer
-        CSV.open(@writer[:csv], "wb") do |csv|
-          headers_written = false
-          title = ""
-          pull(pull_initial,@tree) do |hash|
-    #       the next two lines are a temporary hack to solve the double scrape issue  
-            next unless title != hash[:title]
-            title = hash[:title]
-            (csv << hash.keys && headers_written = true) unless headers_written
-            csv << hash.values
-            spinner.call
-          end
-        end
+      scrape_data(&spinner)
+      write_data(&spinner)
     end
 
     def pull_and_check
@@ -96,36 +76,30 @@ module Dynamised
     end
 
     def write_data(&spinner)
+      parsed_data = @scraped_data.map{|r| JSON.parse(r) }
       @writer.each do |type,data|
         case type
           when :csv
-            write_csv(@scraped_data,data,&spinner)
+            write_csv(parsed_data, data, &spinner)
           when :custom
-            data.call(@scraped_data,&spinner)
+            data.call(parsed_data, &spinner)
           else
             raise '%s is a non supported writer type'
         end
       end
     end
 
-  # pass through single nodes or array of nodes
-    # if single just pass it through, if array treat as group, 
-    # check for each sub_tag and then pass group down
 
     def pull(doc,tree,&block)
       if fields?(tree)
-        scrape?(doc,tree,&block)
+        scrape(doc,tree,&block)
       end
-      childs?(tree) do |pos,node,sub_tr|
-        @current_child = node #get_by_ident(sub_tr,pos)
-        # tree_down(pos) do
+      childs(tree) do |pos,node,sub_tr|
+        @current_child = node
         spt = node.data[:meta][:sub_page_tag]
         scrape_tag_set(doc,spt[:xpath],spt[:meta]) do |url,i|
-            ap "%s(%s)|%s" % [pos,i,url]
-            # next if @scraped_data[segment?(url)]
-            pull(get_doc(segment?(url)),sub_tr||node,&block)
-          end
-          # end
+          pull(get_doc(segment?(url)),sub_tr||node,&block)
+        end
       end
     end
 
@@ -143,13 +117,17 @@ module Dynamised
       not tree.data[:fields].empty?
     end
 
-    def scrape?(doc,tree,&block)
-      if can_scrape(doc,tree)
-        block.call(tree.data[:fields].each_with_object({}) do |(field,data),res_hash|
+    def scrape(doc,tree,&block)
+      c_url = @current_url
+      if !@scraped_data[c_url] && can_scrape(doc,tree)
+        fields =
+        tree.data[:fields].each_with_object({}) do |(field,data),res_hash|
           target = execute_method(data[:meta][:before],remove_style_tags(doc),res_hash)
           value = scrape_tag(target,data[:xpath],data[:meta])
           res_hash[field] = value ? execute_method(data[:meta][:after],value,res_hash) : data[:meta].fetch(:default,nil)
-        end)
+        end
+        @scraped_data[c_url] = fields.to_json
+        block.call(res_hash)
       end
     end
 
@@ -194,7 +172,7 @@ module Dynamised
     end
 
 
-    def childs?(node,tree=nil,&block)
+    def childs(node,tree=nil,&block)
       if node.is_a? Array
         tree.each do |child_node|
          childs?(child_node,tree,&block)
