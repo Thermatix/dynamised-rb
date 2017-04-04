@@ -19,7 +19,7 @@ module Dynamised
         c.option "--[no-]db", 'Turns off db, scraper will pull and store directly to end file, no resume'
         c.action do |args,options|
           options.default db: true
-          args = {nodb: options.db}
+          # nodb = {nodb: options.db}
           script_path = check_and_convert(args.first)
           class_name = get_class_name(args.first)
           create_temp_class(class_name,File.read(script_path))
@@ -51,8 +51,15 @@ module Dynamised
     end
 
     def check_and_convert(path)
+      unless path
+        puts "No script file given"
+        exit
+      end
       script_path = File.expand_path(path, Dir.pwd )
-      (puts "File name %s doesn't exist" % script_path and exit) unless File.exists?(script_path)
+      unless File.exists?(script_path)
+        puts "File name %s doesn't exist" % script_path
+        exit
+      end
       script_path
     end
 
