@@ -101,7 +101,7 @@ module Dynamised
         scrape(doc,tree,&block)
       end
       if pagination?(doc,tree)
-        paginate(tree) do |item|
+        paginate(doc,tree) do |item|
           pull(item,tree,&block)
         end
       else
@@ -117,10 +117,10 @@ module Dynamised
 
     def paginate(doc,tree)
       current_page = doc
-      max = scrape_tag(current_page,tree[:paginate][:max],{r_type: :to_i})
+      max = scrape_tag(current_page,tree.data[:paginate][:max],{r_type: :to_i})
       raise "No paginate max tag found" unless max
       (1..max).each do
-        (current_page.xpath(tree[:paginate][:item])).each do |node|
+        (current_page.xpath(tree.data[:paginate][:item])).each do |node|
           yield(item)
         end
         current_page = get_doc(current_page.xpath(tree[:paginate][:next]).attr('href'))
@@ -128,7 +128,7 @@ module Dynamised
     end
 
     def pagination?(doc,tree)
-      search_for_tag(doc,tree[:paginate][:if])
+      search_for_tag(doc,tree.data[:paginate][:if])
     end
 
 
