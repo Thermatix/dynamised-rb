@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
+puts [$0, __FILE__].inspect
 require_relative '../lib/dynamised'
 require 'commander'
-
 
 
 module Dynamised
@@ -58,7 +58,7 @@ module Dynamised
       script_path = File.expand_path(path, Dir.pwd )
       unless File.exists?(script_path)
         puts "File name %s doesn't exist" % script_path
-        exit
+      exit
       end
       script_path
     end
@@ -79,4 +79,4 @@ module Dynamised
   end
 end
 
-Dynamised::CLI.new.run if $0 == __FILE__
+Dynamised::CLI.new.run 
