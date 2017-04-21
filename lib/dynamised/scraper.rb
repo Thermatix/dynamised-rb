@@ -100,14 +100,37 @@ module Dynamised
       if fields?(tree)
         scrape(doc,tree,&block)
       end
-      childs(tree) do |pos,node,sub_tr|
-        @current_child = node
-        spt = node.data[:meta][:sub_page_tag]
-        scrape_tag_set(doc,spt[:xpath],spt[:meta]) do |url,i|
-          pull(get_doc(segment?(url)),sub_tr||node,&block)
+      if pagination?(doc,tree)
+        paginate(tree) do |item|
+          pull(item,tree,&block)
+        end
+      else
+        childs(tree) do |pos,node,sub_tr|
+          @current_child = node
+          spt = node.data[:meta][:crawl_tag]
+          scrape_tag_set(doc,spt[:xpath],spt[:meta]) do |url,i|
+            pull(get_doc(segment?(url)),sub_tr||node,&block)
+          end
         end
       end
     end
+
+    def paginate(doc,tree)
+      current_page = doc
+      max = scrape_tag(current_page,tree[:paginate][:max],{r_type: :to_i})
+      raise "No paginate max tag found" unless max
+      (1..max).each do
+        (current_page.xpath(tree[:paginate][:item])).each do |node|
+          yield(item)
+        end
+        current_page = get_doc(current_page.xpath(tree[:paginate][:next]).attr('href'))
+      end
+    end
+
+    def pagination?(doc,tree)
+      search_for_tag(doc,tree[:paginate][:if])
+    end
+
 
     def segment?(url)
       url =~ /http/ ? url : "%s/%s"  % [@base_url.gsub(/\/$|\z/,''), url.gsub(/\A\//,'')]

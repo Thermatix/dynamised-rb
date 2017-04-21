@@ -5,8 +5,8 @@ module Dynamised
         Nokogiri::HTML(html)
       end
 
-      def sub_page(html_listing)
-        html_listing.xpath(".%s" % get_sub_page_tag[:path]).attr('href').to_s
+      def crawl(html_listing)
+        html_listing.xpath(".%s" % get_crawl_tag[:path]).attr('href').to_s
       end
 
       def mpc(doc)

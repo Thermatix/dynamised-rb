@@ -8,6 +8,7 @@ module Dynamised
           @tree = Node.new({
             fields:             {},
             meta:               {},
+            paginate:           {},
             recursive_select:   false,
             select:             false,
             scrape_if:          nil
@@ -48,26 +49,42 @@ module Dynamised
       def xpath_prefix(prefix,&block)
         check_for_block(&block)
         @xpath_prefix << prefix
-        yield
+        block.call
         @xpath_prefix.pop
       end
 
 
       def scrape_here_if(args=nil,&block)
-        @tree[@tree_pointer].data[:scrape_if] = args || {block: block}
+        at_p.data[:scrape_if] = args || {block: block}
       end
 
-      def select_sub_page
-        @tree[@tree_pointer].data[:select] = true
+      def select_crawl
+        at_p.data[:select] = true
       end
 
 
-      #recursivly drill into page
-      def sub_page(items,&block)
+      def pag_if(check)
+        at_p.data[:paginate][:if] = check
+      end
+
+      def pag_next(xpath)
+        at_p.data[:paginate][:next] = xpath
+      end
+
+      def pag_inc(xpath)
+        at_p.data[:paginate][:inc] = xpath
+      end
+
+      def pag_item(xpath)
+        at_p.data[:paginate][:item] = xpath
+      end
+
+
+      def crawl(items,&block)
         items.each do |item,path|
-          @tree[@tree_pointer].new_child(item)
+          at_p.new_child(item)
           tree_down(item) do
-            set_meta_tag(:sub_page_tag,join_xpath(path),{attr: [:attr,:href]})
+            set_meta_tag(:crawl_tag,join_xpath(path),{attr: [:attr,:href]})
             block.call
           end
         end
@@ -82,11 +99,15 @@ module Dynamised
         set_info(:meta,name,xpath,meta)
       end
 
-      def writer(writers)
-        @writer = writers
+      def writer(writers=nil,&block)
+        @writer = writers || block
       end
 
       private
+
+      def at_p
+        @tree[@tree_pointer]
+      end
 
       def check_for_block(&block)
         raise "No block given for #%s" % caller[0][/`.*'/][1..-2] unless block_given?
