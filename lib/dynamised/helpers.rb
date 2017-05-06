@@ -21,6 +21,16 @@ module Dynamised
         @current_page.data[:fields].keys
       end
 
+      def pbcopy(input)
+        str = input.to_s
+        IO.popen('pbcopy', 'w') { |f| f << str }
+        str
+      end
+
+      def pbpaste
+        `pbpaste`
+      end
+
     end
   end
 end

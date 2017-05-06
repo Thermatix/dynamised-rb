@@ -152,12 +152,13 @@ module Dynamised
         fields =
         tree.data[:fields].each_with_object({}) do |(field,data),res_hash|
           target = execute_method(data[:meta][:before],remove_style_tags(doc),res_hash)
-          value = scrape_tag(target,data[:xpath],data[:meta])
+          value = data[:xpath].empty? ? target : scrape_tag(target,data[:xpath],data[:meta])
           res_hash[field] =
           if value
-            [*data[:meta][:after]].each do |method|
+            res = [*data[:meta][:after]].map do |method|
               execute_method(method,value,res_hash)
             end
+            res.length > 1 ? res : res.first
           else
             data[:meta].fetch(:default,nil)
           end
@@ -230,7 +231,7 @@ module Dynamised
     end
 
     def search_for_tag(doc,xpath)
-      doc.at_xpath(XPATH_Anchor % xpath)
+      xpath ? doc.at_xpath(XPATH_Anchor % xpath) : false
     end
 
     def scrape_tag(doc,xpath,meta={})
